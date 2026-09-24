@@ -1,0 +1,53 @@
+name: Disposable worker QA
+on:
+  workflow_dispatch:
+    inputs:
+      approve_disposable_test:
+        description: Approve one disposable build and test, not production deployment
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: isolated-worker-qa
+  cancel-in-progress: false
+jobs:
+  qa:
+    if: ${{ inputs.approve_disposable_test }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      QA_PROJECT: workerqa-${{ github.run_id }}-${{ github.run_attempt }}
+      QA_DISPOSABLE_APPROVED: "yes"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Fetch and verify reviewed package
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --max-time 60 https://raw.githubusercontent.com/BoocherBusiness/Lantyrn-worker-deploy/120251ea1d060eb60b0acc10b37f1ea04a351fa6/isolated-worker-qa.zip -o package.zip
+          python3 - <<'PY'
+          import hashlib, pathlib, zipfile
+          p = pathlib.Path('package.zip')
+          assert hashlib.sha256(p.read_bytes()).hexdigest() == '54f580e77452bef1c13ae72cd097b26b244f3a48633a1dc9b5a29e85d3a1e043', 'Package hash mismatch'
+          with zipfile.ZipFile(p) as z:
+              for n in z.namelist():
+                  path = pathlib.PurePosixPath(n)
+                  assert not path.is_absolute() and '..' not in path.parts and path.parts[0] == 'isolated-qa'
+              assert z.testzip() is None
+              z.extractall('.')
+          print('PASS: reviewed package checksum and extraction')
+          PY
+      - name: Static checks
+        run: |
+          python3 -B -m unittest discover -s isolated-qa -p 'test_*.py' -v
+          python3 -B isolated-qa/validator.py
+      - name: Build and test disposable worker
+        run: python3 -B isolated-qa/runtime_qa.py
+      - name: Always clean up disposable resources
+        if: ${{ always() }}
+        run: |
+          if test -f isolated-qa/runtime_qa.py; then
+            python3 -B isolated-qa/runtime_qa.py --cleanup
+          fi
