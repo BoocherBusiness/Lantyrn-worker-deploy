@@ -26,11 +26,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location --max-time 60 https://raw.githubusercontent.com/BoocherBusiness/Lantyrn-worker-deploy/120251ea1d060eb60b0acc10b37f1ea04a351fa6/isolated-worker-qa.zip -o package.zip
+          curl --fail --silent --show-error --location --max-time 60 https://raw.githubusercontent.com/BoocherBusiness/Lantyrn-worker-deploy/b55ed3de1afbf8d4b458f1999f79f32c4ddab26c/isolated-worker-qa-v2.zip -o package.zip
           python3 - <<'PY'
           import hashlib, pathlib, zipfile
           p = pathlib.Path('package.zip')
-          assert hashlib.sha256(p.read_bytes()).hexdigest() == '54f580e77452bef1c13ae72cd097b26b244f3a48633a1dc9b5a29e85d3a1e043', 'Package hash mismatch'
+          assert hashlib.sha256(p.read_bytes()).hexdigest() == '82603e965e4683c40a5e575ff38cea25089d3c0f90416686c52979258064e867', 'Package hash mismatch'
           with zipfile.ZipFile(p) as z:
               for n in z.namelist():
                   path = pathlib.PurePosixPath(n)
