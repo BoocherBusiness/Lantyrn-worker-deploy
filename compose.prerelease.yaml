@@ -1,0 +1,53 @@
+# PRERELEASE: publication only. NOT approved for deployment.
+# Runtime, network-risk and host-identity checks remain pending.
+name: crypto-worker-staging
+services:
+  santo-bootstrap:
+    image: lscr.io/linuxserver/openssh-server@sha256:946fa26105e0ec212fdf821b9ddc59aab65f2c2d07c02b25ff0f5001fc332ff0
+    restart: "no"
+    cpus: 0.5
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Etc/UTC
+      USER_NAME: paperworker
+      PASSWORD_ACCESS: "false"
+      SUDO_ACCESS: "false"
+      LOG_STDOUT: "true"
+      UMASK: "077"
+      PUBLIC_KEY: "restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICO1b8nZhBMx1bf16enw18+MqzvuHu6XjaWg/nuAxn9e santo-bootstrap"
+      STAGING_APPROVAL: "${WORKER_STAGING_APPROVAL:?BLOCKED separate deployment and shared-network risk approval required}"
+    volumes:
+      - santo_bootstrap_config:/config
+    tmpfs:
+      - /work:rw,nosuid,nodev,size=128m,mode=0700,uid=1000,gid=1000
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+    working_dir: /work
+    networks:
+      approved_access:
+        aliases:
+          - santo-crypto-bootstrap
+    healthcheck:
+      test: [CMD, nc, "-z", "-w", "2", "127.0.0.1", "2222"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+    labels:
+      traefik.enable: "false"
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+networks:
+  approved_access:
+    external: true
+    name: hermes-agent-hpu0_default
+volumes:
+  santo_bootstrap_config: {}
